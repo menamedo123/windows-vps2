@@ -1,0 +1,48 @@
+name: Windows VPS via Cloudflare Tunnel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  vps:
+    runs-on: windows-latest
+    steps:
+
+      # 1. نزّل cloudflared (أداة Cloudflare Tunnel)
+      - name: Download Cloudflared
+        shell: powershell
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile cloudflared.exe
+
+      # 2. فعّل RDP وفتح الفاييروال، وصنع الحساب runneradmin
+      - name: Enable RDP & Create User
+        shell: powershell
+        run: |
+          # تمكين الاتصالات عبر RDP
+          Set-ItemProperty -Path HKLM:\System\CurrentControlSet\Control\Terminal Server -Name fDenyTSConnections -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+
+          # إنشاء مستخدم runneradmin بكلمة مرور ثابتة
+          net user runneradmin P@ssw0rd! /add
+          net localgroup "Remote Desktop Users" runneradmin /add
+          net localgroup Administrators runneradmin /add
+
+      # 3. شغّل Tunnel على بورت RDP (3389)
+      - name: Start Cloudflare Tunnel
+        shell: powershell
+        run: |
+          # ابدأ التانل في الخلفية
+          Start-Process -FilePath .\cloudflared.exe -ArgumentList "tunnel --url tcp://localhost:3389 --no-autoupdate" -WindowStyle Hidden
+          Start-Sleep -Seconds 10
+
+      # 4. اعرض رابط الاتصال وبيانات الدخول
+      - name: Show Connection Info
+        shell: powershell
+        run: |
+          # اسحب معلومات التانل (public URL)
+          $info = .\cloudflared.exe tunnel info --url tcp://localhost:3389 | Select-String '"url":'
+          $url = ($info -split '"')[3]
+          Write-Host "📌 Connect via Remote Desktop:"
+          Write-Host "Address: $($url -replace 'tcp://','')"
+          Write-Host "User: runneradmin"
+          Write-Host "Pass: P@ssw0rd!"
