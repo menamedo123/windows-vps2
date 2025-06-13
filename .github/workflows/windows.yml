@@ -1,40 +1,9 @@
-name: Windows VPS via Cloudflare Tunnel
-
-on:
-  workflow_dispatch:
-
-jobs:
-  vps:
-    runs-on: windows-latest
-    steps:
-
-      - name: Download Cloudflared
-        shell: powershell
-        run: |
-          Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile cloudflared.exe
-
-      - name: Enable RDP & Create User
-        shell: powershell
-        run: |
-          Set-ItemProperty -Path HKLM:\System\CurrentControlSet\Control\Terminal Server -Name fDenyTSConnections -Value 0
-          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          net user runneradmin P@ssw0rd! /add
-          net localgroup "Remote Desktop Users" runneradmin /add
-          net localgroup Administrators runneradmin /add
-
-      - name: Start Tunnel & Fetch URL
-        shell: powershell
-        run: |
-          Start-Process -FilePath .\cloudflared.exe -ArgumentList "tunnel --url tcp://localhost:3389 --no-autoupdate" -WindowStyle Hidden
-          Start-Sleep -Seconds 5
-          for ($i = 0; $i -lt 12; $i++) {
-            $out = .\cloudflared.exe tunnel info --url tcp://localhost:3389 2>$null
-            if ($out -match '"url":\s*"([^"]+)"') {
-              $url = $Matches[1]
-              Write-Host "📌 Address: $($url -replace 'tcp://','')"
-              Write-Host "User: runneradmin"
-              Write-Host "Pass: P@ssw0rd!"
-              break
-            }
-            Start-Sleep -Seconds 5
-          }
+    - name: Download Cloudflared
+-     shell: powershell
+-     run: |
+-       Invoke-WebRequest -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" -OutFile cloudflared.exe
++     # استخدم curl عشان تحميل أسرع وأقل مشاكل
++     shell: bash
++     run: |
++       curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe \
++         --output cloudflared.exe
